@@ -1,0 +1,30 @@
+name: Build ESPHome Configs
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  compile:
+    name: Compile ESPHome configs
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - interactive-map.yaml
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Create secrets.yaml
+        run: |
+          cat <<'EOF' > secrets.yaml
+          wifi_ssid: "hackme"
+          wifi_password: "password1234"
+          EOF
+      - name: Build ${{ matrix.config }}
+        uses: esphome/build-action@v6
+        with:
+          yaml-file: ${{ matrix.config }}
