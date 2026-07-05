@@ -1,0 +1,285 @@
+# Relay MVP (no MQTT): direct control over ESPHome API
+
+substitutions:
+  node_name: actuator
+  friendly_name: "Plant Actuator"
+
+esphome:
+  name: ${node_name}
+  friendly_name: ${friendly_name}
+  min_version: 2025.9.0
+  name_add_mac_suffix: false
+  on_boot:
+    priority: -100.0
+    then:
+      - switch.turn_on: "relay_1"
+      - delay: 2s
+      - switch.turn_on: "relay_2"
+      - delay: 2s
+      - switch.turn_on: "relay_3"
+      - delay: 2s
+      - switch.turn_on: "relay_4"
+      - delay: 2s
+      - switch.turn_on: "relay_5"
+      - delay: 2s
+      - switch.turn_on: "relay_6"
+      - delay: 2s
+      - switch.turn_on: "relay_7"
+      - delay: 2s
+      - switch.turn_on: "relay_8"
+      - delay: 2s
+      - switch.turn_on: "relay_9"
+      - delay: 2s
+      - switch.turn_on: "relay_10"
+      - delay: 2s
+      - switch.turn_on: "relay_11"
+      - delay: 2s
+      - switch.turn_on: "relay_12"
+      - delay: 2s
+      - switch.turn_on: "relay_13"
+      - delay: 2s
+      - switch.turn_on: "relay_14"
+      - delay: 2s
+      - switch.turn_on: "relay_15"
+      - delay: 2s
+      - switch.turn_on: "relay_16"
+      - delay: 2s
+      - switch.turn_on: "relay_17"
+      - delay: 2s
+      - switch.turn_on: "relay_18"
+      - delay: 2s
+      - switch.turn_on: "relay_19"
+      - delay: 2s
+      - switch.turn_on: "relay_20"
+
+esp8266:
+  board: d1_mini
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+logger:
+  level: DEBUG
+
+api:
+
+ota:
+  - platform: esphome
+
+i2c:
+  scl: D1
+  sda: D2
+  scan: true
+
+mcp23017:
+  - id: mcp_1
+    address: 0x21
+  - id: mcp_2
+    address: 0x22
+
+switch:
+  - platform: gpio
+    name: "relay_1"
+    id: relay_1
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 0
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_2"
+    id: relay_2
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 8
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_3"
+    id: relay_3
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 1
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_4"
+    id: relay_4
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 9
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_5"
+    id: relay_5
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 2
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_6"
+    id: relay_6
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 10
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_7"
+    id: relay_7
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 3
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_8"
+    id: relay_8
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 11
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_9"
+    id: relay_9
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 4
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_10"
+    id: relay_10
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 12
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_11"
+    id: relay_11
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 5
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_12"
+    id: relay_12
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 13
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_13"
+    id: relay_13
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 6
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_14"
+    id: relay_14
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 14
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_15"
+    id: relay_15
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 7
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_16"
+    id: relay_16
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_1
+      number: 15
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_17"
+    id: relay_17
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_2
+      number: 0
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_18"
+    id: relay_18
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_2
+      number: 1
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_19"
+    id: relay_19
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_2
+      number: 2
+      mode: OUTPUT
+      inverted: true
+
+  - platform: gpio
+    name: "relay_20"
+    id: relay_20
+    restore_mode: ALWAYS_OFF
+    pin:
+      mcp23xxx: mcp_2
+      number: 3
+      mode: OUTPUT
+      inverted: true
+
+status_led:
+  pin:
+    number: GPIO2
+    inverted: true
