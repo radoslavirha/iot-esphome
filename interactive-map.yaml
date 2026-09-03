@@ -107,7 +107,7 @@ script:
           level: INFO
           format: "Fetching remote data"
       - http_request.get:
-          url: "http://api.server1.home/iot/interactive-map-feeder/v1/data-sources/radar/cities/iot"
+          url: "http://api.server1.homelab.irha.cz/iot/interactive-map-feeder/v1/data-sources/radar/cities/iot"
           capture_response: true
           max_response_buffer_size: 15000
           request_headers:
