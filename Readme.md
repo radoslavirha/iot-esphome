@@ -1,6 +1,6 @@
 # ESPHome configurations
 
-Create `secrets.yaml` file `wifi_ssid` and `wifi_password` variables.
+Create `secrets.yaml` file `*_WIFI_SSID` and `*_WIFI_PASSWORD` variables.
 
 ## Dashboard
 

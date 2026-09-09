@@ -1,3 +1,12 @@
+# Secrets pulled in as substitutions so they can be spliced into the token request
+# body and both request URLs below — !secret can only be a whole node value, not
+# combined with literal text inside a string.
+substitutions:
+  idp_token_url: !secret INTERACTIVE_MAP_IDP_TOKEN_URL
+  idp_client_id: !secret INTERACTIVE_MAP_IDP_CLIENT_ID
+  idp_client_secret: !secret INTERACTIVE_MAP_IDP_CLIENT_SECRET
+  feeder_api_url: !secret INTERACTIVE_MAP_FEEDER_API_URL
+
 esp32:
   board: esp32dev
   framework:
@@ -26,8 +35,8 @@ ota:
 - platform: esphome
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
+  ssid: !secret INTERACTIVE_MAP_WIFI_SSID
+  password: !secret INTERACTIVE_MAP_WIFI_PASSWORD
   on_connect:
     then:
       - delay: 2s
@@ -37,6 +46,30 @@ globals:
   - id: API_RESPONSE
     type: std::vector<std::array<int, 4>>
     restore_value: no
+  - id: ACCESS_TOKEN
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  # Precomputed "Bearer <token>" string. request_headers lambdas must return `const char*`;
+  # returning `.c_str()` from a temporary `std::string` built inline would dangle once the
+  # temporary is destroyed, so the composed value is kept in this global instead, refreshed
+  # every time ACCESS_TOKEN is (see request_token).
+  - id: AUTH_HEADER_VALUE
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  # millis()-based deadline (with a safety margin baked in, see request_token). 0 means
+  # "no token yet" and is also always in the past, so the first fetch_data call fetches one.
+  - id: TOKEN_EXPIRES_AT
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  # Bounds the 401 retry in request_data to once per fetch_data call, so a wrong secret or
+  # a down IdP can't cause an unbounded refresh-and-retry loop.
+  - id: FETCH_RETRIED
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
 interval:
   - interval: 10s
@@ -45,6 +78,12 @@ interval:
 
 http_request:
   id: http_client
+  # Default buffer_size_tx (512 bytes, ESP32) is too small to build the request headers for
+  # request_data: the feeder's JWT access_token measured 1340 bytes, so the "Authorization:
+  # Bearer <token>" header alone is ~1350 bytes -- ESP-IDF's esp_http_client logs "Buffer
+  # length is small to fit all the headers" and fails the request (status -1) when this is
+  # exceeded. Sized with headroom above the measured ~1350 bytes for token/claim growth.
+  buffer_size_tx: 4096
 
 light:
   - platform: esp32_rmt_led_strip
@@ -101,19 +140,108 @@ light:
             set_dot(south_path, south_pos++, Color(255, 0, 0));
 
 script:
+  # Entry point (called from on_connect / the interval below). Reuses the cached token when
+  # it's still valid, so a token is only requested roughly once per its ~10-minute lifetime
+  # instead of on every 10s poll (Authentik writes to the service account row on every
+  # client_credentials call).
   - id: fetch_data
+    then:
+      - lambda: |-
+          id(FETCH_RETRIED) = false;
+      - if:
+          condition:
+            lambda: |-
+              return id(ACCESS_TOKEN).empty() || (int32_t)(millis() - id(TOKEN_EXPIRES_AT)) >= 0;
+          then:
+            - script.execute: request_token
+          else:
+            - script.execute: request_data
+
+  - id: request_token
+    # default mode (single) makes this script ignore re-entrant calls: the 401 retry below
+    # calls this script from deep inside its own on_response -> request_data -> on_response
+    # chain, while the original call is still synchronously on the stack, i.e. still
+    # "running" from the script scheduler's point of view. `restart` stops the stale run and
+    # starts a fresh one instead of silently dropping the retry.
+    mode: restart
+    then:
+      - logger.log:
+          level: INFO
+          format: "Requesting new IdP access token"
+      - http_request.post:
+          url: ${idp_token_url}
+          capture_response: true
+          # Default is 1kB; the real token response measured 2660 bytes (long JWT access_token),
+          # which was silently truncated -> ArduinoJson "IncompleteInput" -> ACCESS_TOKEN never
+          # set -> request_data ran anyway with an empty Bearer token -> 401 from the feeder.
+          # Sized with headroom above the measured ~2850 bytes (with scope claims) for growth.
+          max_response_buffer_size: 8192
+          request_headers:
+            Content-Type: application/x-www-form-urlencoded
+          # scope is required: without it Authentik omits the `aud`/`roles` claims (the
+          # feeder's trusted-issuer entry for this client checks both), so the token parses
+          # and looks valid but the feeder still returns 401 "Authentication required".
+          body: "grant_type=client_credentials&client_id=${idp_client_id}&client_secret=${idp_client_secret}&scope=openid%20profile%20email%20roles"
+          on_response:
+            - if:
+                condition:
+                  lambda: return response->status_code == 200;
+                then:
+                  - lambda: |-
+                      json::parse_json(body, [&](JsonObject res) -> bool {
+                        if (!res["access_token"] || !res["expires_in"]) {
+                          ESP_LOGW("log", "Token response missing access_token/expires_in");
+                          return false;
+                        }
+
+                        id(ACCESS_TOKEN) = res["access_token"].as<std::string>();
+                        id(AUTH_HEADER_VALUE) = std::string("Bearer ") + id(ACCESS_TOKEN);
+                        int expires_in = res["expires_in"].as<int>();
+                        // 30s safety margin so the cached token is refreshed slightly before
+                        // Authentik would actually reject it.
+                        uint32_t margin_ms = expires_in > 30 ? (uint32_t)(expires_in - 30) * 1000 : 0;
+                        id(TOKEN_EXPIRES_AT) = millis() + margin_ms;
+
+                        ESP_LOGI("log", "Fetched new access token, expires in %ds", expires_in);
+                        return true;
+                      });
+                  # Only proceed if the parse above actually populated a token. Without this
+                  # gate, a truncated/malformed token response still fell through to request_data
+                  # with an empty Bearer header, hitting the feeder with a doomed request.
+                  - if:
+                      condition:
+                        lambda: return !id(ACCESS_TOKEN).empty();
+                      then:
+                        - script.execute: request_data
+                      else:
+                        - logger.log:
+                            level: "WARN"
+                            format: "Skipping data fetch: no valid access token"
+                else:
+                  - logger.log:
+                      level: "WARN"
+                      format: "Token request failed: status %d, message %s"
+                      args: [ 'response->status_code', 'body.c_str()' ]
+          on_error:
+            then:
+              - logger.log:
+                  level: "WARN"
+                  format: "Token request failed: connection error"
+
+  - id: request_data
     then:
       - logger.log: 
           level: INFO
           format: "Fetching remote data"
       - http_request.get:
-          url: "http://api.server1.homelab.irha.cz/iot/interactive-map-feeder/v1/data-sources/radar/cities/iot"
+          url: ${feeder_api_url}/v1/data-sources/radar/cities/iot
           capture_response: true
           max_response_buffer_size: 15000
           request_headers:
             Content-Type: application/json
             # Important, without this body is empty. Related to Traefik.
             Accept-Encoding: identity
+            Authorization: !lambda 'return id(AUTH_HEADER_VALUE).c_str();'
           on_response:
             - if:
                 condition:
@@ -161,10 +289,27 @@ script:
                       brightness: 100%
                       effect: "Cities from API"
                 else:
-                  - logger.log:
-                      level: "WARN"
-                      format: "Error: Response status: %d, message %s"
-                      args: [ 'response->status_code', 'body.c_str()' ]
+                  - if:
+                      # Token expired/revoked mid-cycle: force one refresh-and-retry. FETCH_RETRIED
+                      # bounds this to a single retry per fetch_data call so a wrong secret or a
+                      # down IdP can't turn into an unbounded loop.
+                      condition:
+                        lambda: return response->status_code == 401 && !id(FETCH_RETRIED);
+                      then:
+                        - logger.log:
+                            level: "WARN"
+                            format: "Feeder returned 401, refreshing token and retrying"
+                        - lambda: |-
+                            id(FETCH_RETRIED) = true;
+                            id(ACCESS_TOKEN).clear();
+                            id(AUTH_HEADER_VALUE).clear();
+                            id(TOKEN_EXPIRES_AT) = 0;
+                        - script.execute: request_token
+                      else:
+                        - logger.log:
+                            level: "WARN"
+                            format: "Error: Response status: %d, message %s"
+                            args: [ 'response->status_code', 'body.c_str()' ]
           on_error:
             then:
               - logger.log:

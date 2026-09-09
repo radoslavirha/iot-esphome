@@ -21,8 +21,12 @@ jobs:
       - name: Create secrets.yaml
         run: |
           cat <<'EOF' > secrets.yaml
-          wifi_ssid: "hackme"
-          wifi_password: "password1234"
+          INTERACTIVE_MAP_WIFI_SSID: "hackme"
+          INTERACTIVE_MAP_WIFI_PASSWORD: "password1234"
+          INTERACTIVE_MAP_IDP_CLIENT_ID: "client-id"
+          INTERACTIVE_MAP_IDP_CLIENT_SECRET: "client-secret"
+          INTERACTIVE_MAP_IDP_TOKEN_URL: "https://auth.example.com/application/o/token/"
+          INTERACTIVE_MAP_FEEDER_API_URL: "http://api.example.com/iot/interactive-map-feeder/v1/data-sources/radar/cities/iot"
           EOF
       - name: Build ${{ matrix.config }}
         uses: esphome/build-action@v6
