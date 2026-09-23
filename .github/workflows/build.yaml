@@ -26,7 +26,7 @@ jobs:
           INTERACTIVE_MAP_IDP_CLIENT_ID: "client-id"
           INTERACTIVE_MAP_IDP_CLIENT_SECRET: "client-secret"
           INTERACTIVE_MAP_IDP_TOKEN_URL: "https://auth.example.com/application/o/token/"
-          INTERACTIVE_MAP_FEEDER_API_URL: "http://api.example.com/iot/interactive-map-feeder/v1/data-sources/radar/cities/iot"
+          INTERACTIVE_MAP_FEEDER_API_URL: "http://api.example.com/iot/interactive-map-feeder"
           EOF
       - name: Build ${{ matrix.config }}
         uses: esphome/build-action@v6
