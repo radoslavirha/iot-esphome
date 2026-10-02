@@ -7,10 +7,8 @@ author: Radoslav Irha
 # Accepted values: agent-skills, antigravity, claude, codex, copilot, cursor, gemini, grok-build, kiro, opencode, windsurf
 targets:
 - claude
-- copilot
 dependencies:
   apm:
-    - obra/superpowers
-  mcp: []
+  mcp:
 includes: auto
 scripts: {}
