@@ -12,6 +12,7 @@ on:
     branches: [main]
     paths:
       - "Readme.md"
+      - "AGENTS.md"
       - "*.yaml"
   workflow_dispatch:
 
